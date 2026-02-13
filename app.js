@@ -7,6 +7,7 @@ const statusEl = document.getElementById("status");
 const previewHead = document.querySelector("#previewTable thead");
 const previewBody = document.querySelector("#previewTable tbody");
 const OCL_CDN_URLS = [
+  "vendor/openchemlib.js",
   "https://cdn.jsdelivr.net/npm/openchemlib@9.19.0/dist/openchemlib.js",
   "https://unpkg.com/openchemlib@9.19.0/dist/openchemlib.js"
 ];

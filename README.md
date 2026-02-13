@@ -10,6 +10,7 @@ There is no actively maintained, drop-in Open Babel browser build that reliably 
 This tool uses:
 - custom SDF parser in JavaScript for robust multi-record + SD tag extraction
 - [OpenChemLib JS](https://github.com/Actelion/openchemlib-js) in the browser to convert mol blocks to SMILES
+- a vendored local browser build at `vendor/openchemlib.js` (CDN fallback is still present in app logic)
 
 ## Usage
 1. Open the app (local file or GitHub Pages).
@@ -30,6 +31,7 @@ This repository is static-site compatible:
 - `index.html`
 - `app.js`
 - `styles.css`
+- `vendor/openchemlib.js`
 
 To publish:
 1. Push to GitHub.
