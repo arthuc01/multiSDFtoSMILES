@@ -6,6 +6,7 @@ const downloadBtn = document.getElementById("downloadBtn");
 const statusEl = document.getElementById("status");
 const previewHead = document.querySelector("#previewTable thead");
 const previewBody = document.querySelector("#previewTable tbody");
+const debugEl = document.getElementById("debugOutput");
 const OCL_CDN_URLS = [
   "vendor/openchemlib.js",
   "https://cdn.jsdelivr.net/npm/openchemlib@9.19.0/dist/openchemlib.js",
@@ -47,9 +48,12 @@ parseBtn.addEventListener("click", async () => {
 
   try {
     const text = await currentFile.text();
+    const debug = buildDebugInfo(text, currentFile.name);
+    debugEl.textContent = debug.message;
+
     const records = parseSdf(text);
     if (records.length === 0) {
-      setStatus("No valid molecule records found.", true);
+      setStatus(`No valid molecule records found. Detected ${debug.blockCount} SDF block(s).`, true);
       renderPreview([], []);
       return;
     }
@@ -82,9 +86,9 @@ parseBtn.addEventListener("click", async () => {
     const failedCount = rows.length - smilesCount;
 
     if (!hasSmilesEngine) {
-      setStatus(`Parsed ${rows.length} record(s). Exported without SMILES (fallback mode).`);
+      setStatus(`Detected ${debug.blockCount} block(s), parsed ${rows.length} record(s). Exported without SMILES (fallback mode).`);
     } else {
-      setStatus(`Parsed ${rows.length} record(s). SMILES generated: ${smilesCount}. Failed: ${failedCount}.`);
+      setStatus(`Detected ${debug.blockCount} block(s), parsed ${rows.length} record(s). SMILES generated: ${smilesCount}. Failed: ${failedCount}.`);
     }
 
     downloadBtn.disabled = false;
@@ -149,12 +153,14 @@ function setCurrentFile(file) {
   if (!file) {
     setStatus("No file selected.");
     dropZone.textContent = "Drag and drop an SDF file here";
+    debugEl.textContent = "No file parsed yet.";
     return;
   }
 
   const fileMb = (file.size / (1024 * 1024)).toFixed(2);
   setStatus(`Selected: ${file.name} (${fileMb} MB).`);
   dropZone.textContent = `Ready: ${file.name}`;
+  debugEl.textContent = "File selected. Click Parse to populate debug details.";
 }
 
 function setStatus(message, isError = false) {
@@ -203,7 +209,7 @@ function injectScriptOnce(src) {
 
 function parseSdf(input) {
   const normalized = input.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-  const chunks = normalized.split(/\n\$\$\$\$\s*(?:\n|$)/g);
+  const chunks = splitSdfBlocks(normalized);
   const out = [];
 
   for (const chunkRaw of chunks) {
@@ -213,7 +219,7 @@ function parseSdf(input) {
     const lines = chunk.split("\n");
     let mEndIndex = -1;
     for (let i = 0; i < lines.length; i++) {
-      if (lines[i].trim() === "M END") {
+      if (/^M\s+END$/i.test(lines[i].trim())) {
         mEndIndex = i;
         break;
       }
@@ -230,6 +236,47 @@ function parseSdf(input) {
   }
 
   return out;
+}
+
+function splitSdfBlocks(normalized) {
+  const lines = normalized.split("\n");
+  const blocks = [];
+  let current = [];
+
+  for (const line of lines) {
+    if (line.trim() === "$$$$") {
+      const chunk = current.join("\n").trim();
+      if (chunk) blocks.push(chunk);
+      current = [];
+      continue;
+    }
+    current.push(line);
+  }
+
+  const tail = current.join("\n").trim();
+  if (tail) blocks.push(tail);
+  return blocks;
+}
+
+function buildDebugInfo(text, fileName) {
+  const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const blocks = splitSdfBlocks(normalized);
+  const mEndCount = (normalized.match(/^M\s+END\s*$/gim) || []).length;
+  const delimiterCount = (normalized.match(/^\$\$\$\$\s*$/gm) || []).length;
+  const headLines = normalized.split("\n").slice(0, 30).join("\n");
+
+  return {
+    blockCount: blocks.length,
+    message:
+`File: ${fileName}
+Bytes: ${text.length}
+Delimiter lines ($$$$): ${delimiterCount}
+Blocks detected: ${blocks.length}
+Lines matching M END: ${mEndCount}
+
+First 30 lines:
+${headLines}`
+  };
 }
 
 function parseSdTags(lines) {
