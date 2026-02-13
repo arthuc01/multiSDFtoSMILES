@@ -68,11 +68,20 @@ parseBtn.addEventListener("click", async () => {
     const tagColumns = Array.from(tagSet).sort((a, b) => a.localeCompare(b));
     const columns = ["RecordIndex", "MoleculeName", "SMILES", "SMILES_Status", ...tagColumns];
     const errorCounts = new Map();
+    let firstFailure = null;
 
     const rows = records.map((rec, idx) => {
       const smilesResult = molfileToSmiles(rec.molblock, hasSmilesEngine);
       if (!smilesResult.smiles && smilesResult.error) {
         errorCounts.set(smilesResult.error, (errorCounts.get(smilesResult.error) || 0) + 1);
+        if (!firstFailure) {
+          firstFailure = {
+            index: idx + 1,
+            name: rec.name || "(no name)",
+            error: smilesResult.error,
+            preview: rec.molblock.split("\n").slice(0, 20).join("\n")
+          };
+        }
       }
       const row = {
         RecordIndex: idx + 1,
@@ -93,6 +102,15 @@ parseBtn.addEventListener("click", async () => {
     const summary = summarizeErrorCounts(errorCounts);
     if (summary) {
       debugEl.textContent += `\n\nTop SMILES failures:\n${summary}`;
+    }
+    if (firstFailure) {
+      debugEl.textContent += `\n\nFirst failed record:
+Index: ${firstFailure.index}
+Name: ${firstFailure.name}
+Error: ${firstFailure.error}
+
+Molblock preview:
+${firstFailure.preview}`;
     }
 
     if (!hasSmilesEngine) {
