@@ -49,9 +49,9 @@ parseBtn.addEventListener("click", async () => {
   downloadBtn.disabled = true;
 
   try {
-    const text = await currentFile.text();
+    const { text, wasGzip } = await readSdfText(currentFile);
     const debug = buildDebugInfo(text, currentFile.name, hasSmilesEngine);
-    debugEl.textContent = debug.message;
+    debugEl.textContent = `${debug.message}\nGzip input: ${wasGzip ? "yes" : "no"}`;
 
     const records = parseSdf(text);
     if (records.length === 0) {
@@ -105,7 +105,7 @@ downloadBtn.addEventListener("click", () => {
   if (!parsedRows.length) return;
 
   const csv = buildCsv(parsedRows, parsedColumns);
-  const fileBase = (currentFile?.name || "output").replace(/\.[^.]+$/, "");
+  const fileBase = (currentFile?.name || "output").replace(/\.(sdf|sd)(\.gz)?$/i, "").replace(/\.gz$/i, "");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
 
@@ -168,6 +168,26 @@ function setCurrentFile(file) {
 function setStatus(message, isError = false) {
   statusEl.textContent = message;
   statusEl.style.color = isError ? "#b42318" : "";
+}
+
+async function readSdfText(file) {
+  const isGzipByName = /\.sdf\.gz$|\.sd\.gz$|\.gz$/i.test(file.name || "");
+  const magic = new Uint8Array(await file.slice(0, 2).arrayBuffer());
+  const isGzipByMagic = magic.length === 2 && magic[0] === 0x1f && magic[1] === 0x8b;
+  const isGzip = isGzipByName || isGzipByMagic;
+
+  if (!isGzip) {
+    return { text: await file.text(), wasGzip: false };
+  }
+
+  if (typeof DecompressionStream === "undefined") {
+    throw new Error("This browser does not support gzip decompression (DecompressionStream).");
+  }
+
+  const ds = new DecompressionStream("gzip");
+  const decompressedStream = file.stream().pipeThrough(ds);
+  const text = await new Response(decompressedStream).text();
+  return { text, wasGzip: true };
 }
 
 function hasOclGlobal() {

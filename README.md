@@ -15,7 +15,7 @@ This tool uses:
 
 ## Usage
 1. Open the app (local file or GitHub Pages).
-2. Choose an `.sdf` file or drag/drop it onto the drop area.
+2. Choose an `.sdf`, `.sd`, `.sdf.gz`, or `.sd.gz` file, or drag/drop it onto the drop area.
 3. Optional: enable fallback checkbox to export even if SMILES engine is unavailable.
 4. Click **Parse**.
 5. Click **Download CSV**.
@@ -44,4 +44,5 @@ To publish:
 ## Notes
 - Parsing and conversion run fully client-side (no server upload).
 - In fallback mode, metadata exports even if SMILES cannot be computed.
+- Gzipped inputs (`.sdf.gz`) are supported in browsers with `DecompressionStream`.
 - Extremely large SDF files may take time in browser memory.
