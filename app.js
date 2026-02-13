@@ -239,10 +239,9 @@ function parseSdf(input) {
   const out = [];
 
   for (const chunkRaw of chunks) {
-    const chunk = chunkRaw.trim();
-    if (!chunk) continue;
+    if (!/[^\s]/.test(chunkRaw)) continue;
 
-    const lines = chunk.split("\n");
+    const lines = chunkRaw.split("\n");
     let mEndIndex = -1;
     for (let i = 0; i < lines.length; i++) {
       if (/^M\s+END$/i.test(lines[i].trim())) {
@@ -271,16 +270,16 @@ function splitSdfBlocks(normalized) {
 
   for (const line of lines) {
     if (line.trim() === "$$$$") {
-      const chunk = current.join("\n").trim();
-      if (chunk) blocks.push(chunk);
+      const chunk = current.join("\n");
+      if (/[^\s]/.test(chunk)) blocks.push(chunk);
       current = [];
       continue;
     }
     current.push(line);
   }
 
-  const tail = current.join("\n").trim();
-  if (tail) blocks.push(tail);
+  const tail = current.join("\n");
+  if (/[^\s]/.test(tail)) blocks.push(tail);
   return blocks;
 }
 
