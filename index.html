@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>multiSDF to CSV + SMILES</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://unpkg.com/openchemlib/full.js"></script>
+</head>
+<body>
+  <main class="container">
+    <h1>multiSDF to CSV + SMILES</h1>
+    <p class="subtitle">Parse multi-molecule SDF files in-browser and export all SD tags plus a SMILES column.</p>
+
+    <section class="panel">
+      <label for="sdfFile" class="label">Select SDF file</label>
+      <input id="sdfFile" type="file" accept=".sdf,.sd" />
+      <div id="dropZone" class="dropZone" role="button" tabindex="0" aria-label="Drop SDF file here">
+        Drag and drop an SDF file here
+      </div>
+
+      <label class="checkboxRow" for="fallbackWithoutSmiles">
+        <input id="fallbackWithoutSmiles" type="checkbox" />
+        Allow CSV export without SMILES if chemistry library is unavailable
+      </label>
+
+      <div class="actions">
+        <button id="parseBtn" type="button">Parse</button>
+        <button id="downloadBtn" type="button" disabled>Download CSV</button>
+      </div>
+      <p id="status" class="status">No file selected.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Preview</h2>
+      <div class="tableWrap">
+        <table id="previewTable">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

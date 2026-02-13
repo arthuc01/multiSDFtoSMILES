@@ -1,0 +1,146 @@
+:root {
+  --bg: #f5f7fb;
+  --panel: #ffffff;
+  --ink: #0f172a;
+  --muted: #475569;
+  --line: #dbe2ea;
+  --brand: #0b5fff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  color: var(--ink);
+  background: linear-gradient(140deg, #eef3ff 0%, #f8fbff 45%, #eff7f4 100%);
+}
+
+.container {
+  max-width: 1080px;
+  margin: 2rem auto;
+  padding: 0 1rem 2rem;
+}
+
+h1 {
+  margin: 0;
+}
+
+.subtitle {
+  color: var(--muted);
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.dropZone {
+  margin-top: 0.6rem;
+  border: 2px dashed #b9c8dd;
+  border-radius: 10px;
+  padding: 1rem;
+  text-align: center;
+  color: #3b4c67;
+  background: #f8fbff;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.dropZone.dragOver {
+  border-color: var(--brand);
+  background: #eef4ff;
+}
+
+.checkboxRow {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.75rem;
+  color: #243449;
+  font-size: 0.92rem;
+}
+
+.actions {
+  margin-top: 0.75rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+button {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.55rem 0.85rem;
+  background: #fff;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+button:hover {
+  border-color: #b7c5d8;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+#parseBtn {
+  background: var(--brand);
+  color: #fff;
+  border-color: var(--brand);
+}
+
+.status {
+  margin: 0.75rem 0 0;
+  color: var(--muted);
+}
+
+.tableWrap {
+  overflow: auto;
+  max-height: 65vh;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 700px;
+}
+
+th,
+td {
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+  font-size: 0.9rem;
+}
+
+th {
+  position: sticky;
+  top: 0;
+  background: #f7faff;
+  z-index: 1;
+}
+
+@media (max-width: 700px) {
+  .container {
+    margin-top: 1rem;
+  }
+
+  .actions {
+    flex-wrap: wrap;
+  }
+}
