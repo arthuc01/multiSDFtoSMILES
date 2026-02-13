@@ -67,9 +67,13 @@ parseBtn.addEventListener("click", async () => {
 
     const tagColumns = Array.from(tagSet).sort((a, b) => a.localeCompare(b));
     const columns = ["RecordIndex", "MoleculeName", "SMILES", "SMILES_Status", ...tagColumns];
+    const errorCounts = new Map();
 
     const rows = records.map((rec, idx) => {
       const smilesResult = molfileToSmiles(rec.molblock, hasSmilesEngine);
+      if (!smilesResult.smiles && smilesResult.error) {
+        errorCounts.set(smilesResult.error, (errorCounts.get(smilesResult.error) || 0) + 1);
+      }
       const row = {
         RecordIndex: idx + 1,
         MoleculeName: rec.name,
@@ -86,6 +90,10 @@ parseBtn.addEventListener("click", async () => {
 
     const smilesCount = rows.filter((r) => r.SMILES).length;
     const failedCount = rows.length - smilesCount;
+    const summary = summarizeErrorCounts(errorCounts);
+    if (summary) {
+      debugEl.textContent += `\n\nTop SMILES failures:\n${summary}`;
+    }
 
     if (!hasSmilesEngine) {
       setStatus(`Detected ${debug.blockCount} block(s), parsed ${rows.length} record(s). Exported without SMILES (fallback mode).`);
@@ -336,15 +344,66 @@ function parseSdTags(lines) {
 
 function molfileToSmiles(molfile, hasSmilesEngine) {
   if (!hasSmilesEngine) {
-    return { smiles: "", status: "ENGINE_UNAVAILABLE" };
+    return { smiles: "", status: "ENGINE_UNAVAILABLE", error: "ENGINE_UNAVAILABLE" };
+  }
+
+  let mol = null;
+  let parseError = "";
+
+  try {
+    mol = OCL.Molecule.fromMolfile(molfile);
+  } catch (err) {
+    parseError = shortError(err);
+  }
+
+  if (!mol) {
+    try {
+      // SDFileParser can be more tolerant on some molfile edge-cases.
+      const parser = new OCL.SDFileParser(`${molfile}\n$$$$\n`, null);
+      if (parser.next()) {
+        mol = parser.getMolecule();
+      }
+    } catch (err) {
+      parseError = parseError || shortError(err);
+    }
+  }
+
+  if (!mol) {
+    return { smiles: "", status: "PARSE_FAILED", error: parseError || "PARSE_FAILED" };
   }
 
   try {
-    const mol = OCL.Molecule.fromMolfile(molfile);
-    return { smiles: mol.toSmiles(), status: "OK" };
+    return { smiles: mol.toSmiles(), status: "OK", error: "" };
   } catch (err) {
-    return { smiles: "", status: "PARSE_FAILED" };
+    const toSmilesError = shortError(err);
+    try {
+      const iso = mol.toIsomericSmiles();
+      if (iso) return { smiles: iso, status: "ISOMERIC_OK", error: "" };
+    } catch (_) {}
+    try {
+      const kek = mol.toIsomericSmiles({ kekulizedOutput: true });
+      if (kek) return { smiles: kek, status: "KEKULIZED_OK", error: "" };
+    } catch (_) {}
+    try {
+      // SMARTS fallback captures structures that are not representable as strict SMILES.
+      const smarts = mol.toIsomericSmiles({ createSmarts: true });
+      if (smarts) return { smiles: smarts, status: "SMARTS_FALLBACK", error: "" };
+    } catch (_) {}
+    return { smiles: "", status: "SMILES_FAILED", error: toSmilesError || "SMILES_FAILED" };
   }
+}
+
+function shortError(err) {
+  const msg = err?.message || String(err || "");
+  return msg.replace(/\s+/g, " ").trim().slice(0, 120) || "unknown_error";
+}
+
+function summarizeErrorCounts(errorCounts) {
+  if (!errorCounts.size) return "";
+  const top = Array.from(errorCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8);
+  return top.map(([msg, count]) => `${count}x - ${msg}`).join("\n");
 }
 
 function buildCsv(rows, columns) {
