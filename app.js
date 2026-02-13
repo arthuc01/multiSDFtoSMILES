@@ -8,10 +8,12 @@ const previewHead = document.querySelector("#previewTable thead");
 const previewBody = document.querySelector("#previewTable tbody");
 const debugEl = document.getElementById("debugOutput");
 const OCL_CDN_URLS = [
-  "vendor/openchemlib.js",
+  "./vendor/openchemlib.js",
   "https://cdn.jsdelivr.net/npm/openchemlib@9.19.0/dist/openchemlib.js",
   "https://unpkg.com/openchemlib@9.19.0/dist/openchemlib.js"
 ];
+let smilesEngineSource = "not_loaded";
+let smilesEngineError = "";
 
 let currentFile = null;
 let parsedRows = [];
@@ -31,7 +33,7 @@ parseBtn.addEventListener("click", async () => {
   }
 
   const allowFallback = fallbackCheckbox.checked;
-  let hasSmilesEngine = Boolean(window.OCL);
+  let hasSmilesEngine = hasOclGlobal();
 
   if (!hasSmilesEngine) {
     setStatus("Loading SMILES engine...");
@@ -48,7 +50,7 @@ parseBtn.addEventListener("click", async () => {
 
   try {
     const text = await currentFile.text();
-    const debug = buildDebugInfo(text, currentFile.name);
+    const debug = buildDebugInfo(text, currentFile.name, hasSmilesEngine);
     debugEl.textContent = debug.message;
 
     const records = parseSdf(text);
@@ -168,43 +170,39 @@ function setStatus(message, isError = false) {
   statusEl.style.color = isError ? "#b42318" : "";
 }
 
-async function ensureSmilesEngine() {
-  if (window.OCL) return true;
-  for (const url of OCL_CDN_URLS) {
-    try {
-      await injectScriptOnce(url);
-      if (window.OCL) return true;
-    } catch (err) {
-      // Try the next URL.
-    }
-  }
-  return Boolean(window.OCL);
+function hasOclGlobal() {
+  return Boolean(window.OCL && window.OCL.Molecule);
 }
 
-function injectScriptOnce(src) {
-  return new Promise((resolve, reject) => {
-    const existing = document.querySelector(`script[data-ocl-src="${src}"]`);
-    if (existing) {
-      if (existing.dataset.loaded === "true") {
-        resolve();
-        return;
-      }
-      existing.addEventListener("load", () => resolve(), { once: true });
-      existing.addEventListener("error", () => reject(new Error("Script load failed")), { once: true });
-      return;
-    }
+function attachOclGlobal(mod) {
+  const candidate = mod?.default || mod?.OCL || mod;
+  if (candidate && candidate.Molecule) {
+    window.OCL = candidate;
+    return true;
+  }
+  return false;
+}
 
-    const script = document.createElement("script");
-    script.src = src;
-    script.async = true;
-    script.dataset.oclSrc = src;
-    script.onload = () => {
-      script.dataset.loaded = "true";
-      resolve();
-    };
-    script.onerror = () => reject(new Error(`Failed to load ${src}`));
-    document.head.appendChild(script);
-  });
+async function ensureSmilesEngine() {
+  if (hasOclGlobal()) {
+    smilesEngineSource = "existing_global";
+    return true;
+  }
+
+  for (const url of OCL_CDN_URLS) {
+    try {
+      const mod = await import(url);
+      if (attachOclGlobal(mod)) {
+        smilesEngineSource = url;
+        smilesEngineError = "";
+        return true;
+      }
+    } catch (err) {
+      smilesEngineError = err?.message || String(err);
+    }
+  }
+  smilesEngineSource = "load_failed";
+  return false;
 }
 
 function parseSdf(input) {
@@ -258,7 +256,7 @@ function splitSdfBlocks(normalized) {
   return blocks;
 }
 
-function buildDebugInfo(text, fileName) {
+function buildDebugInfo(text, fileName, hasSmilesEngine) {
   const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
   const blocks = splitSdfBlocks(normalized);
   const mEndCount = (normalized.match(/^M\s+END\s*$/gim) || []).length;
@@ -273,6 +271,9 @@ Bytes: ${text.length}
 Delimiter lines ($$$$): ${delimiterCount}
 Blocks detected: ${blocks.length}
 Lines matching M END: ${mEndCount}
+SMILES engine ready: ${hasSmilesEngine ? "yes" : "no"}
+SMILES engine source: ${smilesEngineSource}
+SMILES load error: ${smilesEngineError || "none"}
 
 First 30 lines:
 ${headLines}`
