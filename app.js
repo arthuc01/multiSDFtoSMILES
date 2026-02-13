@@ -6,6 +6,10 @@ const downloadBtn = document.getElementById("downloadBtn");
 const statusEl = document.getElementById("status");
 const previewHead = document.querySelector("#previewTable thead");
 const previewBody = document.querySelector("#previewTable tbody");
+const OCL_CDN_URLS = [
+  "https://cdn.jsdelivr.net/npm/openchemlib@9.19.0/dist/openchemlib.js",
+  "https://unpkg.com/openchemlib@9.19.0/dist/openchemlib.js"
+];
 
 let currentFile = null;
 let parsedRows = [];
@@ -25,7 +29,12 @@ parseBtn.addEventListener("click", async () => {
   }
 
   const allowFallback = fallbackCheckbox.checked;
-  const hasSmilesEngine = Boolean(window.OCL);
+  let hasSmilesEngine = Boolean(window.OCL);
+
+  if (!hasSmilesEngine) {
+    setStatus("Loading SMILES engine...");
+    hasSmilesEngine = await ensureSmilesEngine();
+  }
 
   if (!hasSmilesEngine && !allowFallback) {
     setStatus("SMILES engine unavailable. Enable fallback checkbox to export metadata-only CSV.", true);
@@ -150,6 +159,45 @@ function setCurrentFile(file) {
 function setStatus(message, isError = false) {
   statusEl.textContent = message;
   statusEl.style.color = isError ? "#b42318" : "";
+}
+
+async function ensureSmilesEngine() {
+  if (window.OCL) return true;
+  for (const url of OCL_CDN_URLS) {
+    try {
+      await injectScriptOnce(url);
+      if (window.OCL) return true;
+    } catch (err) {
+      // Try the next URL.
+    }
+  }
+  return Boolean(window.OCL);
+}
+
+function injectScriptOnce(src) {
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector(`script[data-ocl-src="${src}"]`);
+    if (existing) {
+      if (existing.dataset.loaded === "true") {
+        resolve();
+        return;
+      }
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener("error", () => reject(new Error("Script load failed")), { once: true });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = src;
+    script.async = true;
+    script.dataset.oclSrc = src;
+    script.onload = () => {
+      script.dataset.loaded = "true";
+      resolve();
+    };
+    script.onerror = () => reject(new Error(`Failed to load ${src}`));
+    document.head.appendChild(script);
+  });
 }
 
 function parseSdf(input) {
