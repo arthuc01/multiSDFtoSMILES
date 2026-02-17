@@ -100,23 +100,26 @@ parseBtn.addEventListener("click", async () => {
     const smilesCount = rows.filter((r) => r.SMILES).length;
     const failedCount = rows.length - smilesCount;
     const summary = summarizeErrorCounts(errorCounts);
-    if (summary) {
-      debugEl.textContent += `\n\nTop SMILES failures:\n${summary}`;
-    }
-    if (firstFailure) {
-      debugEl.textContent += `\n\nFirst failed record:
+    const statusBreakdown = summarizeStatusBreakdown(rows);
+    if (summary || firstFailure) {
+      const diagParts = [];
+      if (summary) diagParts.push(`Top SMILES failures:\n${summary}`);
+      if (firstFailure) {
+        diagParts.push(`First failed record:
 Index: ${firstFailure.index}
 Name: ${firstFailure.name}
 Error: ${firstFailure.error}
 
 Molblock preview:
-${firstFailure.preview}`;
+${firstFailure.preview}`);
+      }
+      debugEl.textContent = `${diagParts.join("\n\n")}\n\n${debugEl.textContent}`;
     }
 
     if (!hasSmilesEngine) {
       setStatus(`Detected ${debug.blockCount} block(s), parsed ${rows.length} record(s). Exported without SMILES (fallback mode).`);
     } else {
-      setStatus(`Detected ${debug.blockCount} block(s), parsed ${rows.length} record(s). SMILES generated: ${smilesCount}. Failed: ${failedCount}.`);
+      setStatus(`Detected ${debug.blockCount} block(s), parsed ${rows.length} record(s). SMILES generated: ${smilesCount}. Failed: ${failedCount}. Statuses: ${statusBreakdown}`);
     }
 
     downloadBtn.disabled = false;
@@ -421,6 +424,18 @@ function summarizeErrorCounts(errorCounts) {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 8);
   return top.map(([msg, count]) => `${count}x - ${msg}`).join("\n");
+}
+
+function summarizeStatusBreakdown(rows) {
+  const counts = new Map();
+  for (const row of rows) {
+    const key = row.SMILES_Status || "UNKNOWN";
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([k, v]) => `${k}:${v}`)
+    .join(" | ");
 }
 
 function buildCsv(rows, columns) {
